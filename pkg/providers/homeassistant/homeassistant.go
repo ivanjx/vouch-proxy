@@ -38,14 +38,19 @@ type AuthMessage struct {
 	Token string `json:"access_token"`
 }
 
+type AuthResponse struct {
+	Type string `json:"type"`
+}
+
 type RequestMessage struct {
 	Id   int    `json:"id"`
 	Type string `json:"type"`
 }
 
 type ResponseMessage struct {
-	Id     int                       `json:"id"`
-	Result structs.HomeAssistantUser `json:"result"`
+	Id      int                       `json:"id"`
+	Success bool                      `json:"success"`
+	Result  structs.HomeAssistantUser `json:"result"`
 }
 
 // GetUserInfo provider specific call to get userinfomation
@@ -60,14 +65,14 @@ func (Provider) GetUserInfo(r *http.Request, user *structs.User, customClaims *s
 
 	client, _, err := websocket.DefaultDialer.Dial(cfg.GenOAuth.UserInfoURL, nil)
 	if err != nil {
-		log.Debugf("error dialing HA websocket: %v", err)
+		log.Errorf("error dialing HA websocket: %v", err)
 		return err
 	}
 	defer client.Close()
 
 	_, _, err = client.ReadMessage()
 	if err != nil {
-		log.Debugf("error reading HA init message: %v", err)
+		log.Errorf("error reading HA init message: %v", err)
 		return err
 	}
 
@@ -76,27 +81,30 @@ func (Provider) GetUserInfo(r *http.Request, user *structs.User, customClaims *s
 		Token: ptokens.PAccessToken,
 	}
 	if err := client.WriteJSON(authMessage); err != nil {
-		log.Debugf("error sending HA auth request: %v", err)
 		return err
 	}
-	_, authResponse, err := client.ReadMessage()
+	_, authResponseData, err := client.ReadMessage()
 	if err != nil {
-		log.Debugf("error reading HA auth response: %v", err)
 		return err
 	}
-	log.Debugf("HA auth body: %s", string(authResponse))
+	var authResponse AuthResponse
+	if err := json.Unmarshal(authResponseData, &authResponse); err != nil {
+		return err
+	}
+	if authResponse.Type != "auth_ok" {
+		log.Errorf("error authenticating with HA: %s", authResponseData)
+		return err
+	}
 
 	requestMessage := RequestMessage{
 		Id:   10, // Can be any number but must be increased on each request
 		Type: "auth/current_user",
 	}
 	if err := client.WriteJSON(requestMessage); err != nil {
-		log.Debugf("error sending HA user info request: %v", err)
 		return err
 	}
 	_, responseMessage, err := client.ReadMessage()
 	if err != nil {
-		log.Debugf("error reading HA user info response: %v", err)
 		return err
 	}
 	log.Infof("HA userinfo body: %s", string(responseMessage))
@@ -106,7 +114,10 @@ func (Provider) GetUserInfo(r *http.Request, user *structs.User, customClaims *s
 	}
 	var data ResponseMessage
 	if err := json.Unmarshal(responseMessage, &data); err != nil {
-		log.Debugf("error unmarshalling HA user info response: %v", err)
+		return err
+	}
+	if !data.Success {
+		log.Errorf("error getting user info from HA: %s", responseMessage)
 		return err
 	}
 	data.Result.PrepareUserData()
