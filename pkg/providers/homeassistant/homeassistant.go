@@ -58,13 +58,18 @@ func (Provider) GetUserInfo(r *http.Request, user *structs.User, customClaims *s
 	}
 	ptokens.PAccessToken = providerToken.Extra("access_token").(string)
 
-	log.Debugf("dialing HA: %s", cfg.GenOAuth.UserInfoURL)
 	client, _, err := websocket.DefaultDialer.Dial(cfg.GenOAuth.UserInfoURL, nil)
 	if err != nil {
 		log.Debugf("error dialing HA websocket: %v", err)
 		return err
 	}
 	defer client.Close()
+
+	_, _, err = client.ReadMessage()
+	if err != nil {
+		log.Debugf("error reading HA init message: %v", err)
+		return err
+	}
 
 	authMessage := AuthMessage{
 		Type:  "auth",
@@ -74,11 +79,12 @@ func (Provider) GetUserInfo(r *http.Request, user *structs.User, customClaims *s
 		log.Debugf("error sending HA auth request: %v", err)
 		return err
 	}
-	_, _, err = client.ReadMessage()
+	_, authResponse, err := client.ReadMessage()
 	if err != nil {
 		log.Debugf("error reading HA auth response: %v", err)
 		return err
 	}
+	log.Debugf("HA auth body: %s", string(authResponse))
 
 	requestMessage := RequestMessage{
 		Id:   10, // Can be any number but must be increased on each request
