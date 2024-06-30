@@ -24,7 +24,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./
-          file: Dockerfile
+          file: Dockerfile.alpine
           platforms: linux/amd64
           push: true
           tags: ghcr.io/ivanjx/vouch-proxy:latest
