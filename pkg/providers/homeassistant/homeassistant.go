@@ -58,8 +58,8 @@ func (Provider) GetUserInfo(r *http.Request, user *structs.User, customClaims *s
 	}
 	ptokens.PAccessToken = providerToken.Extra("access_token").(string)
 
-	wsURL := cfg.GenOAuth.UserInfoURL
-	client, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	log.Debugf("dialing HA: %s", cfg.GenOAuth.UserInfoURL)
+	client, _, err := websocket.DefaultDialer.Dial(cfg.GenOAuth.UserInfoURL, nil)
 	if err != nil {
 		log.Debugf("error dialing HA websocket: %v", err)
 		return err
