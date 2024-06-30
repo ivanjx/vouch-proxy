@@ -94,6 +94,10 @@ func (Provider) GetUserInfo(r *http.Request, user *structs.User, customClaims *s
 		return err
 	}
 	log.Infof("HA userinfo body: %s", string(responseMessage))
+	if err = common.MapClaims(responseMessage, customClaims); err != nil {
+		log.Error(err)
+		return err
+	}
 	var data ResponseMessage
 	if err := json.Unmarshal(responseMessage, &data); err != nil {
 		log.Debugf("error unmarshalling HA user info response: %v", err)
