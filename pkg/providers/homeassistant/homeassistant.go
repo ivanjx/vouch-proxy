@@ -35,7 +35,7 @@ func (Provider) Configure() {
 
 type AuthMessage struct {
 	Type  string `json:"type"`
-	Token string `json:"auth_token"`
+	Token string `json:"access_token"`
 }
 
 type RequestMessage struct {
