@@ -61,6 +61,7 @@ func (Provider) GetUserInfo(r *http.Request, user *structs.User, customClaims *s
 	wsURL := cfg.GenOAuth.UserInfoURL
 	client, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
+		log.Debugf("error dialing HA websocket: %v", err)
 		return err
 	}
 	defer client.Close()
@@ -70,10 +71,12 @@ func (Provider) GetUserInfo(r *http.Request, user *structs.User, customClaims *s
 		Token: ptokens.PAccessToken,
 	}
 	if err := client.WriteJSON(authMessage); err != nil {
+		log.Debugf("error sending HA auth request: %v", err)
 		return err
 	}
 	_, _, err = client.ReadMessage()
 	if err != nil {
+		log.Debugf("error reading HA auth response: %v", err)
 		return err
 	}
 
@@ -82,15 +85,18 @@ func (Provider) GetUserInfo(r *http.Request, user *structs.User, customClaims *s
 		Type: "auth/current_user",
 	}
 	if err := client.WriteJSON(requestMessage); err != nil {
+		log.Debugf("error sending HA user info request: %v", err)
 		return err
 	}
 	_, responseMessage, err := client.ReadMessage()
 	if err != nil {
+		log.Debugf("error reading HA user info response: %v", err)
 		return err
 	}
 	log.Infof("HA userinfo body: %s", string(responseMessage))
 	var data ResponseMessage
 	if err := json.Unmarshal(responseMessage, &data); err != nil {
+		log.Debugf("error unmarshalling HA user info response: %v", err)
 		return err
 	}
 	data.Result.PrepareUserData()
